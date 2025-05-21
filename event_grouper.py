@@ -46,70 +46,71 @@ class EventGrouper:
     async def add_event(self, event_type, event_details):
         """Add an event to the buffer or send immediately for certain types."""
         logging.debug(f"Adding event: {event_type}.")
-        
-        # Special handling for suspicious file modifications to reduce alert frequency
-        if event_type == 'suspicious_file_modified':
-            file_path = event_details.get('file_path', '')
-            # Get a simplified path for grouping similar system file alerts
-            simplified_path = self._simplify_system_path(file_path)
-            current_time = datetime.now()
-            
-            # Check if we should group this alert
-            with self._buffer_lock:
-                # Add to the system file alerts collection
-                self._system_file_alerts[simplified_path].append(event_details)
-                
-                # Check if we've sent an alert for this path recently
-                last_alert_time = self._last_alert_times.get(simplified_path)
-                alert_count = len(self._system_file_alerts[simplified_path])
-                
-                # Only send if:
-                # 1. We haven't sent an alert for this path recently, or
-                # 2. We've accumulated enough alerts to justify sending another one
-                should_send = False
-                
-                if not last_alert_time or (current_time - last_alert_time) > timedelta(seconds=self._system_alert_window):
-                    # It's been long enough since the last alert
-                    should_send = True
-                elif alert_count >= self._system_alert_threshold:
-                    # We've accumulated enough alerts to justify sending another one
-                    should_send = True
-                    
-                if should_send:
-                    # Create a copy of the event details and add the grouped count
-                    grouped_details = event_details.copy()
-                    grouped_count = len(self._system_file_alerts[simplified_path]) - 1
-                    if grouped_count > 0:
-                        grouped_details['grouped_count'] = grouped_count
-                    
-                    # Update the last alert time
-                    self._last_alert_times[simplified_path] = current_time
-                    
-                    # Clear the buffer for this path
-                    self._system_file_alerts[simplified_path] = []
-                    
-                    # Send the alert
-                    logging.debug(f"Sending grouped suspicious file alert for {simplified_path} with {grouped_count} additional alerts")
-                    await self._send_individual_alert(event_type, grouped_details)
-                else:
-                    logging.debug(f"Buffering suspicious file alert for {simplified_path}, current count: {alert_count}")
-            
-        # Buffer file and folder events for grouping
-        elif event_type in ['file_created', 'file_modified', 'file_deleted', 'file_moved']:
-            with self._buffer_lock:
-                if event_type not in self._event_buffer:
-                    self._event_buffer[event_type] = []
-                self._event_buffer[event_type].append(event_details)
-            logging.debug(f"Buffered {event_type} event.")
-        # Handle window events immediately as they are the trigger for grouping file/folder activity
-        elif event_type == 'window':
-            logging.debug("Received window event. Processing immediately.")
-            await self._process_window_event(event_details)
-        # Send other event types immediately
-        else:
-            logging.debug(f"Sending individual alert for event type: {event_type}.")
-            await self._send_individual_alert(event_type, event_details)
 
+        try:
+            # Special handling for suspicious file modifications to reduce alert frequency
+            if event_type == 'suspicious_file_modified':
+                file_path = event_details.get('file_path', '')
+                # Get a simplified path for grouping similar system file alerts
+                simplified_path = self._simplify_system_path(file_path)
+                current_time = datetime.now()
+            
+                # Check if we should group this alert
+                with self._buffer_lock:
+                    # Add to the system file alerts collection
+                    self._system_file_alerts[simplified_path].append(event_details)
+                    
+                    # Check if we've sent an alert for this path recently
+                    last_alert_time = self._last_alert_times.get(simplified_path)
+                    alert_count = len(self._system_file_alerts[simplified_path])
+                    
+                    # Only send if:
+                    # 1. We haven't sent an alert for this path recently, or
+                    # 2. We've accumulated enough alerts to justify sending another one
+                    should_send = False
+                    
+                    if not last_alert_time or (current_time - last_alert_time) > timedelta(seconds=self._system_alert_window):
+                        # It's been long enough since the last alert
+                        should_send = True
+                    elif alert_count >= self._system_alert_threshold:
+                        # We've accumulated enough alerts to justify sending another one
+                        should_send = True
+                        
+                    if should_send:
+                        # Create a copy of the event details and add the grouped count
+                        grouped_details = event_details.copy()
+                        grouped_count = len(self._system_file_alerts[simplified_path]) - 1
+                        if grouped_count > 0:
+                            grouped_details['grouped_count'] = grouped_count
+                        
+                        # Update the last alert time
+                        self._last_alert_times[simplified_path] = current_time
+                        
+                        # Clear the buffer for this path
+                        self._system_file_alerts[simplified_path] = []
+                        
+                        # Send the alert
+                        logging.debug(f"Sending grouped suspicious file alert for {simplified_path} with {grouped_count} additional alerts")
+                        await self._send_individual_alert(event_type, grouped_details)
+                    else:
+                        logging.debug(f"Buffering suspicious file alert for {simplified_path}, current count: {alert_count}")
+            
+            # Buffer file and folder events for grouping
+            elif event_type in ['file_created', 'file_modified', 'file_deleted', 'file_moved']:
+                with self._buffer_lock:
+                    if event_type not in self._event_buffer:
+                        self._event_buffer[event_type] = []
+                    self._event_buffer[event_type].append(event_details)
+                logging.debug(f"Buffered {event_type} event.")
+            # Handle window events immediately as they are the trigger for grouping file/folder activity
+            elif event_type == 'window':
+                logging.debug("Received window event. Processing immediately.")
+                await self._process_window_event(event_details)
+            # Send other event types immediately
+            else:
+                await self._send_individual_alert(event_type, event_details)
+        except Exception as e:
+            logging.error(f"Error adding event: {e}")
     async def _process_window_event(self, window_details):
         """Process a window event and group buffered file/folder events."""
         logging.debug("_process_window_event called.")
@@ -118,15 +119,35 @@ class EventGrouper:
             # Copy buffered events and clear the buffer
             buffered_events = self._event_buffer.copy()
             self._event_buffer.clear()
-
+    
         # Only send a grouped alert if there are buffered file/folder events
         if buffered_events:
             logging.debug(f"Processing window event with buffered events: {buffered_events.keys()}")
-            await self._send_grouped_file_activity_alert(window_details, buffered_events)
+            try:
+                await self._send_grouped_file_activity_alert(window_details, buffered_events)
+            except Exception as e:
+                logging.error(f"Error processing window event and sending grouped alert: {e}")
+                # Optionally, send a simplified error message to Telegram
+                try:
+                    error_message = self.translator.get("An error occurred while processing window activity.")
+                    # await self.telegram_bot.send_message(error_message)
+                    logging.error(f"Error processing window event and sending grouped alert: {e}") # Log the error details
+                except Exception as send_error:
+                    logging.error(f"Failed to send error message to Telegram: {send_error}")
         else:
             logging.debug("No buffered file/folder events to group with window event. Sending individual window alert.")
             # If no file/folder events were buffered, send the window event as an individual alert
-            await self._send_individual_alert('window', window_details)
+            try:
+                await self._send_individual_alert('window', window_details)
+            except Exception as e:
+                logging.error(f"Error sending individual window alert: {e}")
+                # Optionally, send a simplified error message to Telegram
+                try:
+                    error_message = self.translator.get("An error occurred while sending a window activity alert.")
+                    # await self.telegram_bot.send_message(error_message)
+                    logging.error(f"Error sending individual window alert: {e}") # Log the error details
+                except Exception as send_error:
+                    logging.error(f"Failed to send error message to Telegram: {send_error}")
 
     async def _send_grouped_file_activity_alert(self, window_details, grouped_events):
         """Send a consolidated alert for grouped file/folder activity."""
@@ -378,21 +399,24 @@ class EventGrouper:
                 # Default case for other individual alert types if any
                 pass # Explicitly pass if no default action needed
 
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            consolidated_message = "\n".join(message_lines)
+
+            # Send the individual message
+            logging.debug("Calling send_async_message for individual alert.")
+            await self.telegram_bot.send_message(consolidated_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+            logging.info(f"Sent individual alert for {event_type}.")
 
         except Exception as e:
             logging.error(f"Error sending individual alert for {event_type}: {e}")
-
-        # Default keyboard if none is set in the specific event type blocks
-        if 'keyboard' not in locals():
-            keyboard = [] # Or a default empty keyboard
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        consolidated_message = "\n".join(message_lines)
-
-        # Send the individual message
-        logging.debug("Calling send_async_message for individual alert.")
-        await self.telegram_bot.send_message(consolidated_message, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
-        logging.info(f"Sent individual alert for {event_type}.")
+            # Optionally, send a simplified error message to Telegram if possible
+            try:
+                error_message = self.translator.get("An error occurred while processing an alert.")
+                # Avoid sending the full exception details to Telegram for security/verbosity reasons
+                # await self.telegram_bot.send_message(error_message)
+                logging.error(f"Error sending individual alert for {event_type}: {e}") # Log the error details
+            except Exception as send_error:
+                logging.error(f"Failed to send error message to Telegram: {send_error}")
 
     def clear_paused_buffered_events(self):
         """Clear the event buffer when pausing to avoid sending old events on resume."""
