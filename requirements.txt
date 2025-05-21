@@ -1,0 +1,20 @@
+# Core dependencies
+python-telegram-bot>=20.0
+pywin32>=300
+psutil>=5.8.0
+watchdog>=2.1.6
+wmi>=1.5.1
+pyautogui>=0.9.53
+pillow>=8.3.1
+cryptography>=35.0.0
+
+# GUI for setup
+customtkinter>=4.6.3
+
+# Building and protection
+pyinstaller>=4.5.1
+pyarmor>=7.7.0
+
+# Optional but recommended
+colorama>=0.4.4  # For colored console output
+requests>=2.26.0  # For HTTP requests

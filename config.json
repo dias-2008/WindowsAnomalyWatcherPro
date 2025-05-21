@@ -1,0 +1,15 @@
+{
+    "language": "en",
+    "start_with_windows": true,
+    "telegram_token": "gAAAAABoJ3AUBOwoxaklqBFsA9SEQVu7Zd6yGJl0anY5vOERMnH01m7fiYkcHwWSEXvShZUUFbHFcc7X8Y9wtj0U-ytN0QVL3VWgxm9UuvHdy-3qwqZVfDGpT3jUHswM_yRqig1GqpIP",
+    "telegram_chat_id": "gAAAAABoJ3AUOnoTcmXUtHuX1aVyCnaSK0CpyoS1FZi8YVO3RdlQ30QP-HRQcVTXVaIlByWg4bIUnnZgeiKcX41v3DkXedKUcQ==",
+    "monitored_folders": [
+        "C:/",
+        "D:/"
+    ],
+    "monitoring_enabled": true,
+    "window_monitoring": true,
+    "process_monitoring": true,
+    "usb_monitoring": true,
+    "file_monitoring": true
+}
