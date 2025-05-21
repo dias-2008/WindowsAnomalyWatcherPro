@@ -103,12 +103,7 @@ class TelegramBot:
     async def button_callback(self, update: Update, context: CallbackContext) -> None:
         """Handles button presses."""
         query = update.callback_query
-        try:
-            await query.answer()
-        except telegram.error.TimedOut:
-            logging.warning("Telegram API timed out when answering callback query.")
-            # Optionally, you could add a retry mechanism or a different notification here
-            pass # Continue processing the callback even if answering fails
+        await query.answer()
 
         data = query.data
         logging.info(f"Received callback query: {data}")
