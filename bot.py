@@ -408,7 +408,14 @@ class TelegramBot:
                 await query.edit_message_text(text=self.translator.get("Operation cancelled."))
         except Exception as e:
             logging.error(f"Error handling callback query: {e}")
-            await query.edit_message_text(text=self.translator.get("An error occurred while processing your request."))
+            # Add more specific error handling or logging here if needed
+            try:
+                # Attempt to send a generic error message back to the user via the callback query
+                # Avoid sending sensitive exception details directly to the user
+                error_message = self.translator.get("An error occurred while processing your request.")
+                await query.edit_message_text(text=error_message)
+            except Exception as edit_error:
+                logging.error(f"Failed to edit message with error notification: {edit_error}")
 
     async def stop(self):
         """Stop the Telegram bot."""
