@@ -1,6 +1,5 @@
-# Utilities package
+# Configuration package
 
 """
-This package contains utility modules for the Windows Anomaly Watcher PRO application.
-It includes modules for logging, encryption, screenshots, and system-related utilities.
+This package contains configuration-related modules for the Windows Anomaly Watcher PRO application.
 """
